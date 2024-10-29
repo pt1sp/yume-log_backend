@@ -22,9 +22,15 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: allowedOrigins, // 許可するオリジンを指定
-  methods: ['GET', 'POST'], // 許可するHTTPメソッドを指定
-  credentials: true // 認証情報を含むリクエストを許可
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true); // 許可する
+    } else {
+      callback(new Error('CORSエラー: 許可されていないオリジンからのリクエストです'));
+    }
+  },
+  methods: ['GET', 'POST'],
+  credentials: true,
 }));
 
 // サーバーを開始
