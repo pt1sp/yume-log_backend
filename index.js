@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 
 // PostgreSQLのプールを作成
 const pool = new Pool({
@@ -22,8 +22,8 @@ app.listen(PORT, () => {
 
 // CORSの設定を追加
 const allowedOrigins = [
+  'https://yume-log-frontend.vercel.app/',
   'http://localhost:3000',
-  'https://yume-log-frontend.vercel.app/'
 ];
 
 app.use(cors({
