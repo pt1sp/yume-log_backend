@@ -17,7 +17,7 @@ const pool = new Pool({
 
 // CORSの設定を追加
 const allowedOrigins = [
-  'https://yume-log-frontend.vercel.app/',
+  'https://yume-log-frontend.vercel.app',
   'http://localhost:3000',
 ];
 
