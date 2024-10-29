@@ -15,11 +15,6 @@ const pool = new Pool({
   },
 });
 
-// サーバーを開始
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
-
 // CORSの設定を追加
 const allowedOrigins = [
   'https://yume-log-frontend.vercel.app/',
@@ -31,6 +26,11 @@ app.use(cors({
   methods: ['GET', 'POST'], // 許可するHTTPメソッドを指定
   credentials: true // 認証情報を含むリクエストを許可
 }));
+
+// サーバーを開始
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
 
 app.use(express.json());
 
@@ -168,3 +168,4 @@ app.get('/', (req, res) => {
   console.log('APIに接続されました');
   res.send('ゆめログ API');
 });
+
