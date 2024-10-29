@@ -23,8 +23,7 @@ app.listen(PORT, () => {
 // CORSの設定を追加
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://yume-log-frontend.vercel.app/',
-  'https://yume-log-frontend.vercel.app/display'
+  'https://yume-log-frontend.vercel.app/'
 ];
 
 app.use(cors({
