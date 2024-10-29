@@ -1,10 +1,20 @@
 const express = require('express');
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg'); // PostgreSQL用のパッケージをインポート
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+
 const app = express();
 const PORT = 4000;
+
+// PostgreSQLのプールを作成
+const pool = new Pool({
+  host: 'dpg-csgbu068ii6s739fegd0-a', // PostgreSQLのホスト名
+  user: 'dreams_db_2p3a_user', // ユーザー名
+  password: 'IBMbFf36OuLky2VCU2UQ3SIGGkYHkgLi', // パスワード
+  database: 'dreams_db_2p3a', // データベース名
+  port: 5432, // PostgreSQLのデフォルトポート
+});
 
 // サーバーを開始
 app.listen(PORT, () => {
@@ -16,21 +26,14 @@ app.use(cors({
   origin: 'http://localhost:3000'
 }));
 
-const db = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'dreams_db',
-});
-
 app.use(express.json());
 
 // 夢の投稿
 app.post('/api/dreams', async (req, res) => {
   const { user_id, title, content, tag, location } = req.body;
   try {
-    const [result] = await db.query('INSERT INTO dreams (user_id, title, content, tag, location) VALUES (?, ?, ?, ?, ?)', [user_id, title, content, tag, location]);
-    res.status(201).json({ message: '夢が投稿されました！', id: result.insertId });
+    const result = await pool.query('INSERT INTO dreams (user_id, title, content, tag, location) VALUES ($1, $2, $3, $4, $5) RETURNING id', [user_id, title, content, tag, location]);
+    res.status(201).json({ message: '夢が投稿されました！', id: result.rows[0].id });
   } catch (error) {
     console.error('エラー:', error);
     res.status(500).json({ error: 'サーバーエラー' });
@@ -40,22 +43,21 @@ app.post('/api/dreams', async (req, res) => {
 // 夢のリアクション追加
 app.post('/api/reactions', async (req, res) => {
   const { dream_id, reaction_type } = req.body;
-  const sql = 'INSERT INTO reactions (dream_id, reaction_type) VALUES (?, ?)';
+  const sql = 'INSERT INTO reactions (dream_id, reaction_type) VALUES ($1, $2)';
   try {
-    const [result] = await db.query(sql, [dream_id, reaction_type]);
+    const result = await pool.query(sql, [dream_id, reaction_type]);
     res.status(201).json({ message: 'リアクションが追加されました', id: result.insertId });
   } catch (error) {
     console.error('エラー:', error);
     res.status(500).json({ error: 'サーバーエラー' });
   }
-  console.log(dreams);
 });
 
 // おすすめの夢を取得する
 app.get('/api/dreams/recommended', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM dreams ORDER BY RAND() LIMIT 5');
-    res.json(rows);
+    const result = await pool.query('SELECT * FROM dreams ORDER BY RANDOM() LIMIT 5'); // PostgreSQLではRANDOM()を使用
+    res.json(result.rows);
   } catch (error) {
     console.error('エラー:', error);
     res.status(500).json({ error: 'サーバーエラー' });
@@ -65,7 +67,7 @@ app.get('/api/dreams/recommended', async (req, res) => {
 // 夢の取得
 app.get('/api/dreams/display', async (req, res) => {
   try {
-    const [dreams] = await db.query(`
+    const result = await pool.query(`
       SELECT d.id, d.title, d.content, d.tag, d.location, d.view_count,
              SUM(CASE WHEN r.reaction_type = 'ok' THEN 1 ELSE 0 END) AS ok_count,
              SUM(CASE WHEN r.reaction_type = 'happy' THEN 1 ELSE 0 END) AS happy_count,
@@ -79,8 +81,7 @@ app.get('/api/dreams/display', async (req, res) => {
       LEFT JOIN reactions r ON d.id = r.dream_id
       GROUP BY d.id
     `);
-
-    res.json(dreams);
+    res.json(result.rows);
   } catch (error) {
     console.error('エラー:', error);
     res.status(500).send('エラーが発生しました');
@@ -90,42 +91,16 @@ app.get('/api/dreams/display', async (req, res) => {
 // 夢の詳細取得
 app.get('/api/dreams/:id', async (req, res) => {
   const dreamId = req.params.id;
-
-  // データベース接続の作成
-  const connection = await mysql.createConnection({
-      host: 'localhost',
-      user: 'root',
-      password: '',
-      database: 'dreams_db'
-  });
-
   try {
-      // クエリ文を修正し、dreamIdを使って正しい行を取得
-      const query = 'SELECT * FROM dreams WHERE id = ?';
-      const [results] = await connection.execute(query, [dreamId]);
-
-      if (results.length > 0) {
-          res.json(results[0]); // 結果を返す
-      } else {
-          res.status(404).json({ error: '夢が見つかりません' });
-      }
+    const result = await pool.query('SELECT * FROM dreams WHERE id = $1', [dreamId]);
+    if (result.rows.length > 0) {
+      res.json(result.rows[0]); // 結果を返す
+    } else {
+      res.status(404).json({ error: '夢が見つかりません' });
+    }
   } catch (error) {
-      console.error('データベースエラー:', error); // エラーをコンソールに表示
-      res.status(500).json({ error: 'データベースエラー' });
-  } finally {
-      await connection.end(); // 接続を閉じる
-  }
-});
-
-
-app.get('/api/dreams/', async (req, res) => {
-  const { dreamId } = req.query;
-  try {
-      const [rows] = await db.query('SELECT * FROM dreams WHERE id = ?', [dreamId]);
-      res.json(rows);
-  } catch (error) {
-      console.error('エラー:', error);
-      res.status(500).json({ error: 'サーバーエラー' });
+    console.error('データベースエラー:', error);
+    res.status(500).json({ error: 'データベースエラー' });
   }
 });
 
@@ -133,42 +108,12 @@ app.get('/api/dreams/', async (req, res) => {
 app.get('/api/dreams/my', async (req, res) => {
   const { user_id } = req.query;
   try {
-      const [rows] = await db.query('SELECT * FROM dreams WHERE user_id = ?', [user_id]);
-      res.json(rows);
+    const result = await pool.query('SELECT * FROM dreams WHERE user_id = $1', [user_id]);
+    res.json(result.rows);
   } catch (error) {
-      console.error('エラー:', error);
-      res.status(500).json({ error: 'サーバーエラー' });
+    console.error('エラー:', error);
+    res.status(500).json({ error: 'サーバーエラー' });
   }
-});
-
-// リアクション追加
-app.post('/api/dreams/:id/react', (req, res) => {
-  const dreamId = req.params.id;
-  const { reaction } = req.body; // リクエストボディから反応を取得
-
-  // 有効なリアクションを定義
-  const validReactions = ['ok', 'happy', 'scary', 'sad', 'lonely', 'fun', 'surprised', 'dislike'];
-
-  // リアクションが有効かどうかを確認
-  if (!validReactions.includes(reaction)) {
-      return res.status(400).json({ error: '無効なリアクションです' });
-  }
-
-  // 各リアクションのカウントを更新
-  const updateQuery = `UPDATE dreams SET ${reaction}_count = ${reaction}_count + 1 WHERE id = ?`;
-  connection.query(updateQuery, [dreamId], (error, results) => {
-      if (error) {
-          return res.status(500).json({ error: 'データベースエラー' });
-      }
-      res.status(204).send(); // 成功を示す204 No Content
-  });
-});
-
-
-// ホームルート
-app.get('/', (req, res) => {
-  console.log('APIに接続されました');
-  res.send('ゆめログ API');
 });
 
 // ユーザー登録
@@ -176,11 +121,11 @@ app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const [result] = await db.query(
-      'INSERT INTO users (username, password) VALUES (?, ?)',
+    const result = await pool.query(
+      'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id',
       [username, hashedPassword]
     );
-    res.status(201).json({ message: 'ユーザー登録が完了しました', userId: result.insertId });
+    res.status(201).json({ message: 'ユーザー登録が完了しました', userId: result.rows[0].id });
   } catch (error) {
     console.error('エラー:', error);
     res.status(400).json({ message: '登録に失敗しました。ユーザー名が重複しています。' });
@@ -188,33 +133,32 @@ app.post('/api/register', async (req, res) => {
 });
 
 // ログイン
-// よくわからない。エラーが出る 2024/10/25
 app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-    try {
-      const [user] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
-        if (!user) {
-            console.log('ユーザーが見つかりません:', username);
-            return res.status(401).json({ error: 'ユーザーが存在しません' });
-        }
-        console.log('取得したユーザー:', user);
-      
-      // ハッシュの比較
-      if (await bcrypt.compare(password, user.password)) {
-          const token = generateToken(user.id); // トークン生成
-          res.json({ token, user_id: user.id });
-      } else {
-          res.status(401).json({ error: 'ユーザー名またはパスワードが間違っています' });
-      }
+  const { username, password } = req.body;
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    const user = result.rows[0]; // 取得したユーザー
+
+    if (!user) {
+      console.log('ユーザーが見つかりません:', username);
+      return res.status(401).json({ error: 'ユーザーが存在しません' });
+    }
+    
+    // ハッシュの比較
+    if (await bcrypt.compare(password, user.password)) {
+      const token = jwt.sign({ id: user.id }, 'your-secret-key'); // トークン生成
+      res.json({ token, user_id: user.id });
+    } else {
+      res.status(401).json({ error: 'ユーザー名またはパスワードが間違っています' });
+    }
   } catch (error) {
-      console.error('エラー:', error); // エラーの詳細をログに表示
-      res.status(500).json({ error: 'サーバーエラー' });
+    console.error('エラー:', error);
+    res.status(500).json({ error: 'サーバーエラー' });
   }
-  
 });
 
-
-
-
-
-
+// ホームルート
+app.get('/', (req, res) => {
+  console.log('APIに接続されました');
+  res.send('ゆめログ API');
+});
