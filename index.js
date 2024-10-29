@@ -9,11 +9,10 @@ const PORT = 4000;
 
 // PostgreSQLのプールを作成
 const pool = new Pool({
-  host: 'dpg-csgbu068ii6s739fegd0-a', // PostgreSQLのホスト名
-  user: 'dreams_db_2p3a_user', // ユーザー名
-  password: 'IBMbFf36OuLky2VCU2UQ3SIGGkYHkgLi', // パスワード
-  database: 'dreams_db_2p3a', // データベース名
-  port: 5432, // PostgreSQLのデフォルトポート
+  connectionString: 'postgresql://dreams_db_2p3a_user:IBMbFf36OuLky2VCU2UQ3SIGGkYHkgLi@dpg-csgbu068ii6s739fegd0-a.oregon-postgres.render.com/dreams_db_2p3a',
+  ssl: {
+      rejectUnauthorized: false, // SSL証明書の検証を無効にする（Renderでは必要な場合があります）
+  },
 });
 
 // サーバーを開始
