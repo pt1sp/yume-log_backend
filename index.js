@@ -80,18 +80,19 @@ app.get('/api/dreams/recommended', async (req, res) => {
 app.get('/api/dreams/display', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT d.id, d.title, d.content, d.tag, d.location, d.view_count,
-             SUM(CASE WHEN r.reaction_type = 'ok' THEN 1 ELSE 0 END) AS ok_count,
-             SUM(CASE WHEN r.reaction_type = 'happy' THEN 1 ELSE 0 END) AS happy_count,
-             SUM(CASE WHEN r.reaction_type = 'scary' THEN 1 ELSE 0 END) AS scary_count,
-             SUM(CASE WHEN r.reaction_type = 'sad' THEN 1 ELSE 0 END) AS sad_count,
-             SUM(CASE WHEN r.reaction_type = 'lonely' THEN 1 ELSE 0 END) AS lonely_count,
-             SUM(CASE WHEN r.reaction_type = 'fun' THEN 1 ELSE 0 END) AS fun_count,
-             SUM(CASE WHEN r.reaction_type = 'surprised' THEN 1 ELSE 0 END) AS surprised_count,
-             SUM(CASE WHEN r.reaction_type = 'dislike' THEN 1 ELSE 0 END) AS dislike_count
-      FROM dreams d
-      LEFT JOIN reactions r ON d.id = r.dream_id
-      GROUP BY d.id
+      SELECT d.id, d.title, d.content, d.tag, d.location,
+       SUM(CASE WHEN r.reaction_type = 'ok' THEN 1 ELSE 0 END) AS ok_count,
+       SUM(CASE WHEN r.reaction_type = 'happy' THEN 1 ELSE 0 END) AS happy_count,
+       SUM(CASE WHEN r.reaction_type = 'scary' THEN 1 ELSE 0 END) AS scary_count,
+       SUM(CASE WHEN r.reaction_type = 'sad' THEN 1 ELSE 0 END) AS sad_count,
+       SUM(CASE WHEN r.reaction_type = 'lonely' THEN 1 ELSE 0 END) AS lonely_count,
+       SUM(CASE WHEN r.reaction_type = 'fun' THEN 1 ELSE 0 END) AS fun_count,
+       SUM(CASE WHEN r.reaction_type = 'surprised' THEN 1 ELSE 0 END) AS surprised_count,
+       SUM(CASE WHEN r.reaction_type = 'dislike' THEN 1 ELSE 0 END) AS dislike_count
+FROM dreams d
+LEFT JOIN reactions r ON d.id = r.dream_id
+GROUP BY d.id;
+
     `);
     res.json(result.rows);
   } catch (error) {
